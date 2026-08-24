@@ -1,0 +1,355 @@
+---
+title: "Edge Inference"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(FOCI)
+library(ggplot2)
+library(gridExtra)
+```
+
+```{r}
+data <- read.csv("Flow_Cytometry.csv",header = TRUE)
+PIP2_plcg_to_PKC <- read.csv("simulated_data_edge/PIP2_plcg_to_PKC.csv",header=FALSE)
+PKC_to_PKA <- read.csv("simulated_data_edge/PKC_to_PKA.csv",header=FALSE)
+PIP3_to_pakts473 <- read.csv("simulated_data_edge/PIP3_to_pakts473.csv",header=FALSE)
+P44_42_to_pakts473 <- read.csv("simulated_data_edge/P44_42_to_pakts473.csv",header=FALSE)
+```
+
+
+## PIP2,PLCG -> PKC
+
+```{r}
+name.list1 <- c("PIP2","plcg","PKC")
+idx.list1 <- rep(0,length(name.list1))
+for (i in 1:length(name.list1)){
+  idx.list1[i] <- which(colnames(data)==name.list1[i])
+}
+data.sub1 <- data[idx.list1]
+```
+
+```{r}
+set.seed(1)
+stats1 <- codec(data.sub1[,3],data.sub1[,c(1,2)])
+stats1
+```
+
+```{r}
+set.seed(1)
+stats.list1 <- numeric(500)
+for (k in 1:500){
+  stats.list1[k] <- codec(PIP2_plcg_to_PKC[,k],data.sub1[,c(1,2)])
+}
+write.csv(stats.list1,"results/PIP2_plcg_to_PKC_pvalues.csv",row.names = FALSE)
+```
+
+```{r}
+df <- data.frame(stat = stats.list1)
+
+p1 <- ggplot(df, aes(x = stat)) +
+  geom_histogram(bins = 30, color = "white", fill = "grey70") +
+  geom_vline(xintercept = stats1,
+             color = "red",
+             linetype = "dashed",
+             linewidth = 1) +
+  annotate("text",
+           x = stats1-0.025,
+           y = 40,
+           label = "Observed Statistic",
+           angle = 0,
+           vjust = -1,
+           color = "red",
+           size = 4) +
+  labs(
+    title = "Linkage: (PIP2, PLCg) \u2192 PKC",
+    x = "Simulated Statistics under Null Hypothesis",
+    y = "Count"
+  ) +
+  coord_cartesian(clip = "off") +
+  theme_bw(base_size = 14)
+```
+
+```{r}
+p_value1 <- (1+sum(stats.list1>=stats1))/501
+p_value1
+```
+
+
+## PKC -> PKA
+
+```{r}
+name.list2 <- c("PKC","PKA")
+idx.list2 <- rep(0,length(name.list2))
+for (i in 1:length(name.list2)){
+  idx.list2[i] <- which(colnames(data)==name.list2[i])
+}
+data.sub2 <- data[idx.list2]
+```
+
+```{r}
+set.seed(1)
+stats2 <- codec(data.sub2[,2],data.sub2[,1,])
+stats2
+```
+
+
+```{r}
+set.seed(1)
+stats.list2 <- numeric(500)
+for (k in 1:500){
+  stats.list2[k] <- codec(PKC_to_PKA[,k],data.sub2[,1,])
+}
+write.csv(stats.list2,"results/PKC_to_PKA_pvalues.csv",row.names = FALSE)
+```
+
+
+```{r}
+df2 <- data.frame(stat = stats.list2)
+
+p2 <- ggplot(df2, aes(x = stat)) +
+  geom_histogram(bins = 30, color = "white", fill = "grey70") +
+  geom_vline(xintercept = stats2,
+             color = "red",
+             linetype = "dashed",
+             linewidth = 1) +
+  annotate("text",
+           x = stats2 + 0.025,
+           y = 40,              # adjust if your y-scale is different
+           label = "Observed Statistic",
+           angle = 0,
+           vjust = -1,
+           color = "red",
+           size = 4) +
+  labs(
+    title = "Linkage: PKC \u2192 PKA",
+    x = "Simulated Statistics under Null Hypothesis",
+    y = "Count"
+  ) +
+  coord_cartesian(clip = "off") +
+  theme_bw(base_size = 14)
+```
+
+```{r}
+p_value2 <- (1+sum(stats.list2>=stats2))/501
+p_value2
+```
+## PIP3 -> pakts473
+
+```{r}
+name.list3 <- c("PIP3","PKA","p44.42","pakts473")
+idx.list3 <- rep(0,length(name.list3))
+for (i in 1:length(name.list3)){
+  idx.list3[i] <- which(colnames(data)==name.list3[i])
+}
+data.sub3 <- data[idx.list3]
+```
+
+
+```{r}
+set.seed(1)
+stats3 <- codec(data.sub3[,4],data.sub3[,1],data.sub3[,c(2,3)])
+stats3
+```
+
+```{r}
+set.seed(1)
+stats.list3 <- numeric(500)
+for (k in 1:500){
+  stats.list3[k] <- codec(PIP3_to_pakts473[,k],data.sub3[,1],data.sub3[,c(2,3)])
+}
+write.csv(stats.list3,"results/PIP3_to_pakts473_pvalues.csv",row.names = FALSE)
+```
+
+```{r}
+df3 <- data.frame(stat = stats.list3)
+
+p3 <- ggplot(df3, aes(x = stat)) +
+  geom_histogram(bins = 30, color = "white", fill = "grey70") +
+  geom_vline(xintercept = stats3,
+             color = "red",
+             linetype = "dashed",
+             linewidth = 1) +
+  annotate("text",
+           x = stats3 - 0.025,
+           y = 40,              # adjust if your y-scale is different
+           label = "Observed Statistic",
+           angle = 0,
+           vjust = -1,
+           color = "red",
+           size = 4) +
+  labs(
+    title = "Linkage: PIP3 \u2192 Akt",
+    x = "Simulated Statistics under Null Hypothesis",
+    y = "Count"
+  ) +
+  coord_cartesian(clip = "off") +
+  theme_bw(base_size = 14)
+```
+
+```{r}
+p_value3 <- (1+sum(stats.list3>=stats3))/501
+p_value3
+```
+
+## p44.42 -> pakts473
+
+```{r}
+name.list4 <- c("PIP3","PKA","p44.42","pakts473")
+idx.list4 <- rep(0,length(name.list4))
+for (i in 1:length(name.list4)){
+  idx.list4[i] <- which(colnames(data)==name.list4[i])
+}
+data.sub4 <- data[idx.list4]
+```
+
+```{r}
+set.seed(1)
+stats4 <- codec(data.sub4[,4],data.sub4[,3],data.sub4[,c(1,2)])
+stats4
+```
+
+```{r}
+set.seed(1)
+stats.list4 <- numeric(500)
+for (k in 1:500){
+  stats.list4[k] <- codec(P44_42_to_pakts473[,k],data.sub4[,3],data.sub4[,c(1,2)])
+}
+write.csv(stats.list4,"results/P44_42_to_pakts473_pvalues.csv",row.names = FALSE)
+```
+
+```{r}
+df4 <- data.frame(stat = stats.list4)
+
+p4 <- ggplot(df4, aes(x = stat)) +
+  geom_histogram(bins = 30, color = "white", fill = "grey70") +
+  geom_vline(xintercept = stats4,
+             color = "red",
+             linetype = "dashed",
+             linewidth = 1) +
+  annotate("text",
+           x = stats4 - 0.06,
+           y = 80,              # adjust if your y-scale is different
+           label = "Observed Statistic",
+           angle = 0,
+           vjust = -1,
+           color = "red",
+           size = 4) +
+  labs(
+    title = "Linkage: Erk \u2192 Akt",
+    x = "Simulated Statistics under Null Hypothesis",
+    y = "Count"
+  ) +
+  coord_cartesian(clip = "off") +
+  theme_bw(base_size = 14)
+```
+
+```{r}
+p_value4 <- (1+sum(stats.list4>stats4))/501
+p_value4
+```
+
+```{r}
+p_combined1 <- grid.arrange(p1, p2, p3, p4, ncol = 2)
+ggsave("statistics_simulated.pdf", p_combined1, width = 15, height = 9)
+```
+
+
+# Permutation-based CODEC Test
+
+## PIP2,PLCG -> PKC
+
+```{r}
+set.seed(1)
+stats.list5 <- numeric(500)
+for (i in 1:500){
+  idx <- sample(1:nrow(data),replace=FALSE)
+  stats.list5[i] <- codec(data.sub1[idx,3],data.sub1[,c(1,2)])
+}
+write.csv(stats.list5,"results/PIP2_plcg_to_PKC_pvalues_permutation.csv",row.names = FALSE)
+```
+
+
+```{r}
+df5 <- data.frame(stat = stats.list5)
+
+p5 <- ggplot(df5, aes(x = stat)) +
+  geom_histogram(bins = 30, color = "white", fill = "grey70") +
+  geom_vline(xintercept = stats1,
+             color = "red",
+             linetype = "dashed",
+             linewidth = 1) +
+  annotate("text",
+           x = stats1 - 0.02,
+           y = 30,              # adjust if your y-scale is different
+           label = "Observed Statistic",
+           angle = 0,
+           vjust = -1,
+           color = "red",
+           size = 4) +
+  labs(
+    title = "Linkage:(PIP2, PLCg) \u2192 PKC",
+    x = "Permuted Statistics under Null Hypothesis",
+    y = "Count"
+  ) +
+  coord_cartesian(clip = "off") +
+  theme_bw(base_size = 14)
+```
+```{r}
+p_value5 <- (1+sum(stats.list5>=stats1))/501
+p_value5
+```
+
+## PKC -> PKA
+
+```{r}
+set.seed(1)
+stats.list6 <- numeric(500)
+for (i in 1:500){
+  idx <- sample(1:nrow(data),replace=FALSE)
+  stats.list6[i] <- codec(data.sub2[idx,2],data.sub2[,1,])
+}
+write.csv(stats.list6,"results/PKC_to_PKA_pvalues_permutation.csv",row.names = FALSE)
+```
+
+
+```{r}
+df6 <- data.frame(stat = stats.list6)
+
+p6 <- ggplot(df6, aes(x = stat)) +
+  geom_histogram(bins = 30, color = "white", fill = "grey70") +
+  geom_vline(xintercept = stats2,
+             color = "red",
+             linetype = "dashed",
+             linewidth = 1) +
+  annotate("text",
+           x = stats2 + 0.02,
+           y = 40,              # adjust if your y-scale is different
+           label = "Observed Statistic",
+           angle = 0,
+           vjust = -1,
+           color = "red",
+           size = 4) +
+  labs(
+    title = "Linkage: PKC \u2192 PKA",
+    x = "Permuted Statistics under Null Hypothesis",
+    y = "Count"
+  ) +
+  coord_cartesian(clip = "off") +
+  theme_bw(base_size = 14)
+```
+
+```{r}
+p_value6 <- (1+sum(stats.list6>=stats2))/501
+p_value6
+```
+
+```{r}
+p_combined2 <- grid.arrange(p5, p6, ncol = 2)
+ggsave("statistics_permuted.pdf", p_combined2, width = 15, height = 4.5)
+```
+

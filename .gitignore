@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Generated simulation artifacts
+/ckpt/
+/data/
+/results/
+
+# Generated flow-cytometry artifacts
+/flow_cytometry_inference/checkpoints/
+/flow_cytometry_inference/checkpoints_shuffled/
+/flow_cytometry_inference/results/
+/flow_cytometry_inference/results_check/
+/flow_cytometry_inference/results_shuffled/
+/flow_cytometry_inference/simulated_data_check/
+/flow_cytometry_inference/simulated_data_edge/
+
+# Third-party comparison implementations are not part of this release
+/competitors/
+/competitors_distribution/
+
+# R, editors, and operating systems
+.Rhistory
+.RData
+.Rproj.user/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
