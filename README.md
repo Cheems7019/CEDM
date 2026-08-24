@@ -1,145 +1,180 @@
 # Causality-Encoded Diffusion Models (CEDM)
 
----
+[![arXiv](https://img.shields.io/badge/arXiv-2604.21843-b31b1b.svg)](https://arxiv.org/abs/2604.21843)
+[![Python 3.10](https://img.shields.io/badge/Python-3.10-3776AB.svg?logo=python&logoColor=white)](requirements.txt)
+[![PyTorch 2.5.1](https://img.shields.io/badge/PyTorch-2.5.1-EE4C2C.svg?logo=pytorch&logoColor=white)](requirements.txt)
 
-## Overview
+Official implementation of **Causality-Encoded Diffusion Models for Interventional
+Sampling and Edge Inference** by Li Chen, Xiaotong Shen, and Wei Pan.
 
-This repository provides the implementation for the paper:
+[Paper](https://arxiv.org/abs/2604.21843) ·
+[Quick start](#quick-start) ·
+[Reproduce the paper](#reproducing-the-paper) ·
+[Citation](#citation)
 
-> **Causality-Encoded Diffusion Models for Interventional Sampling and Edge Inference**
-> Li Chen, Xiaotong Shen, Wei Pan (2026)
+CEDM factorizes diffusion learning according to a known directed acyclic graph (DAG),
+training one conditional diffusion model for each node given its parents. The fitted model
+supports both observational and `do`-interventional sampling. Its theoretical recovery
+rates depend on the maximum local parent-child dimension rather than the ambient dimension.
 
-Standard diffusion models learn observational distributions but are causally agnostic -- they do not distinguish between observationally equivalent graphs and cannot answer interventional queries. This work introduces:
+CEDM-based inference (**CEDMI**) combines the fitted generator with the multivariate
+conditional dependence coefficient (**MCODEC**) to test targeted directed edges. Under
+sample splitting, CEDMI has asymptotic type-I error control.
 
-- **CEDM** (Causality-Encoded Diffusion Models): a score-based generative framework that incorporates a known directed acyclic graph (DAG) by training one conditional diffusion model per node, each conditioned on its parent nodes. The resulting sampler recovers the observational distribution and supports interventional sampling via the do-calculus by clamping intervened variables and propagating effects downstream through the graph during reverse diffusion.
+## Method at a glance
 
-- **CEDMI** (CEDM-based Inference): a resampling-based procedure for testing directed edges in a given DAG. The test generates null replicates of a child node under the candidate graph using CEDM's interventional sampler, then compares the observed **MCODEC** statistic to its null distribution to produce a Monte Carlo p-value.
+```mermaid
+flowchart LR
+    A["Known DAG"] --> B["Nodewise conditional diffusion models"]
+    B --> C["Observational sampling"]
+    B --> D["do-interventional sampling"]
+    E["Candidate directed edge"] --> F["Edge-deleted null graph"]
+    F --> G["Fit null CEDM"]
+    G --> H["Generate null resamples"]
+    H --> I["MCODEC statistics"]
+    I --> J["Monte Carlo p-value"]
+```
 
-- **MCODEC** (Multivariate Conditional Dependence Coefficient): a new rank-based, tuning-free test statistic for multivariate conditional dependence, extending the Azadkia-Chatterjee coefficient to the multivariate setting.
+| Component | Role |
+|---|---|
+| **CEDM** | DAG-aware observational and interventional sampling |
+| **CEDMI** | Resampling-based inference for targeted directed edges |
+| **MCODEC** | Rank-based, tuning-free multivariate conditional-dependence statistic |
 
-**Key theoretical results**: CEDM achieves score-matching and total-variation convergence rates governed by the maximum local dimension (a node and its parents) rather than the ambient dimension, yielding provable gains over causally agnostic baselines on sparse DAGs. CEDMI achieves asymptotic type-I error control under sample splitting.
+### Highlights
 
----
+- Encodes a known DAG through nodewise conditional score models.
+- Generates samples from observational and interventional distributions.
+- Establishes score-matching and total-variation guarantees governed by local dimension.
+- Tests directed edges through null-graph resampling and MCODEC.
+- Includes synthetic studies and a flow-cytometry application on the Sachs signalling data.
 
-## Installation
+## Quick start
 
-This project uses **Python 3.10.19**. Install all Python dependencies with:
+### Requirements
+
+- Python **3.10.19**
+- The packages pinned in [`requirements.txt`](requirements.txt)
+- R and the `RCIT` package for [`Edge_Inference.Rmd`](flow_cytometry_inference/Edge_Inference.Rmd)
+- A CUDA-capable GPU is recommended for the full diffusion experiments
+
+Clone the repository and create an isolated Python environment:
 
 ```bash
-pip install -r requirements.txt
+git clone https://github.com/Cheems7019/CEDM.git
+cd CEDM
+python -m venv .venv
 ```
 
-The Python dependencies are `torch`, `numpy`, `pandas`, `scikit-learn`, `matplotlib`,
-`seaborn`, `hyppo`, and `tqdm`. See `requirements.txt` for the tested versions.
+Activate the environment on Windows PowerShell:
 
-For the flow cytometry inference step, **R** is also required. The script `flow_cytometry_inference/Edge_Inference.Rmd` uses the R package `RCIT`.
-
----
-
-## Repository Structure
-
-```
-CEDM/
-|
-+-- utils/
-|   +-- conditional_ddpm.py         # CEDM: per-node conditional diffusion models
-|   +-- ddpm.py                     # Causally agnostic joint diffusion baseline
-|   +-- utils_model.py              # Masked MLP backbone (standard framework)
-|   +-- utils_data.py               # Synthetic data generators and ground-truth conditionals
-|   +-- mcodec.py                   # MCODEC test statistic
-|
-+-- simulations/
-|   |   --- Figure 1: do-distributional comparison ---
-|   +-- *_data_comparison.py
-|   +-- *_distribution_comparison.py
-|   +-- summary_distribution_comparison.ipynb
-|   |   --- Figures 2-3: inference with sample splitting ---
-|   +-- DataGen_inference_split.py
-|   +-- inference_*_split.py
-|   +-- summary_inference_split.ipynb
-|   |   --- Supplementary simulation studies ---
-|   +-- *_comparison.py
-|   +-- inference_size_*.py
-|   +-- inference_power_*.py
-|   +-- inference_sachs_misspecification.py
-|   +-- summary_comparison.ipynb
-|   +-- summary_inference.ipynb
-|
-+-- flow_cytometry_inference/
-|   +-- cytometry_diffusion_training.py  # Train CEDM on flow cytometry data
-|   +-- Edge_Inference.Rmd               # R script for edge inference
-|   +-- Flow_Cytometry.csv               # Pre-processed Sachs dataset (n=1755)
-|   +-- model_check.py                   # Model diagnostics
-|   +-- plot_histograms.py               # Result visualisation
-|   |   --- Figure 5 (main text): shuffled Sachs experiments ---
-|   +-- p44_42_to_pakts473_shuffled.py
-|   +-- pip2_plcg_pkc_shuffled.py
-|   +-- pip3_pakts473_shuffled.py
-|   +-- pkc_pka_shuffled.py
-|   +-- flow_cytometry_shuffled_summary.ipynb  # Generates Figure 5
-|
-+-- requirements.txt
+```powershell
+.venv\Scripts\Activate.ps1
 ```
 
----
+Or on macOS/Linux:
 
-## Reproducing the Paper Results
+```bash
+source .venv/bin/activate
+```
 
-Run the commands below from the repository root. Simulation entry points also normalise
-their import and output paths to the repository root when launched from another directory.
+Install the dependencies:
 
-### Figure 1 (Main Text) -- Data and Distributional Comparison
+```bash
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
 
-Compares CEDM against causally agnostic and VACA baselines on four graph structures
-(hub, random DAG, long chain, Sachs) in terms of distribution-level metrics.
+Model-training scripts default to a CUDA device. Where supported, use `--device cpu` to
+run without a GPU, for example:
+
+```bash
+python simulations/inference_size_gamma_split.py --device cpu
+```
+
+## Reproducing the paper
+
+Run all commands from the repository root. Simulation entry points normalize imports and
+generated-artifact paths to the repository root when launched from another directory.
+
+| Study | Entry points | Summary |
+|---|---|---|
+| Main Figure 1: interventional distribution recovery | [`*_data_comparison.py`](simulations) and [`*_distribution_comparison.py`](simulations) | [`summary_distribution_comparison.ipynb`](simulations/summary_distribution_comparison.ipynb) |
+| Main Figures 2-3: edge inference with sample splitting | [`DataGen_inference_split.py`](simulations/DataGen_inference_split.py) and [`inference_*_split.py`](simulations) | [`summary_inference_split.ipynb`](simulations/summary_inference_split.ipynb) |
+| Main Figure 5: shuffled flow-cytometry study | [`flow_cytometry_inference/`](flow_cytometry_inference) | [`flow_cytometry_shuffled_summary.ipynb`](flow_cytometry_inference/flow_cytometry_shuffled_summary.ipynb) |
+| Original flow-cytometry analysis | [`cytometry_diffusion_training.py`](flow_cytometry_inference/cytometry_diffusion_training.py) and [`Edge_Inference.Rmd`](flow_cytometry_inference/Edge_Inference.Rmd) | CSV and PDF outputs |
+| Supplementary simulations | Comparison, nonsplit-inference, and misspecification scripts | Summary notebooks in [`simulations/`](simulations) |
+
+<details>
+<summary><strong>Main Figure 1: interventional distribution recovery</strong></summary>
+
+The study compares CEDM with a causality-agnostic diffusion model and VACA on the Hub,
+Chain, Random-DAG, and Sachs structures. For each structure, generate the reference and
+training data before running the distributional comparison.
 
 ```bash
 python simulations/hub_data_comparison.py
 python simulations/hub_distribution_comparison.py
+
 python simulations/long_chain_data_comparison.py
 python simulations/long_chain_distribution_comparison.py
+
 python simulations/random_dag_data_comparison.py
 python simulations/random_dag_distribution_comparison.py
+
 python simulations/sachs_data_comparison.py
 python simulations/sachs_distribution_comparison.py
 ```
 
-Then open `simulations/summary_distribution_comparison.ipynb` to generate Figure 1.
-The notebook can also read separately generated VACA CSV files from the documented
-`results/*_distribution_comparison/vaca/` locations; VACA source code is not bundled here.
+Open [`simulations/summary_distribution_comparison.ipynb`](simulations/summary_distribution_comparison.ipynb)
+to generate the figure. The notebook expects separately generated VACA CSV files in the
+corresponding `results/*_distribution_comparison/vaca/` directories; VACA source code is
+not bundled in this repository.
 
----
+</details>
 
-### Figures 2-3 (Main Text) -- Conditional Independence Testing
+<details>
+<summary><strong>Main Figures 2-3: conditional-independence testing</strong></summary>
 
-These experiments use sample splitting: CEDM is trained on a held-out training set and the
-MCODEC statistic is evaluated on a separate inference set.
+These experiments use sample splitting: CEDM is trained on a held-out training set and
+MCODEC is evaluated on a separate inference set.
 
-**Step 1 -- Generate data (run once):**
+Generate all deterministic train/inference splits once:
 
 ```bash
 python simulations/DataGen_inference_split.py
 ```
 
-**Step 2 -- Run CEDMI:**
+Run CEDMI for empirical size and power:
 
 ```bash
-python simulations/inference_size_gamma_split.py    # Empirical size, Chain null
-python simulations/inference_size_eta_split.py      # Empirical size, Fork null
-python simulations/inference_power_gamma_split.py   # Power, varying gamma
-python simulations/inference_power_eta_split.py     # Power, varying eta
+python simulations/inference_size_gamma_split.py
+python simulations/inference_size_eta_split.py
+python simulations/inference_power_gamma_split.py
+python simulations/inference_power_eta_split.py
 ```
 
-Then open `simulations/summary_inference_split.ipynb` to produce Figures 2-3. Implementations
-of comparison methods are not bundled; obtain them from the original sources listed below.
+Open [`simulations/summary_inference_split.ipynb`](simulations/summary_inference_split.ipynb)
+to produce the figures. Implementations of comparison methods are not bundled; obtain them
+from the original sources listed under [External comparison methods](#external-comparison-methods).
 
----
+</details>
 
-### Figure 5 (Main Text) -- Flow Cytometry Analysis on Shuffled Data
+<details>
+<summary><strong>Main Figure 5: shuffled flow-cytometry study</strong></summary>
 
-Applies CEDMI to shuffled replicates of the Sachs et al. (2005) protein-signalling dataset
-to assess four disputed edges between the literature consensus network and the Sachs et al.
-Bayesian network (p44/42 -> pakts473, PIP3 -> pakts473, PIP2 <- Plcg/PKC, PKC -> PKA).
+The scripts assess four disputed linkages between the literature-consensus network and the
+Sachs Bayesian network:
+
+- p44/42 to Akt (S473)
+- PIP3 to Akt (S473)
+- PIP2/PLCg to PKC
+- PKC to PKA
+
+Before running them, provide shuffled datasets named `Flow_Cytometry_1.csv`,
+`Flow_Cytometry_2.csv`, and so on. By default the scripts read these files from
+`flow_cytometry_inference/shuffled_data/`; alternatively, pass a directory using
+`--shuffled-dir`. These generated shuffled inputs are not included in the repository.
 
 ```bash
 python flow_cytometry_inference/p44_42_to_pakts473_shuffled.py
@@ -148,33 +183,32 @@ python flow_cytometry_inference/pip3_pakts473_shuffled.py
 python flow_cytometry_inference/pkc_pka_shuffled.py
 ```
 
-Then open `flow_cytometry_inference/flow_cytometry_shuffled_summary.ipynb` to generate
-Figure 5.
+Open [`flow_cytometry_shuffled_summary.ipynb`](flow_cytometry_inference/flow_cytometry_shuffled_summary.ipynb)
+to summarize rejection rates and generate the figure.
 
----
+</details>
 
-### Flow Cytometry Data Analysis (Original, Non-Shuffled)
+<details>
+<summary><strong>Original flow-cytometry analysis</strong></summary>
 
-Applies CEDMI to the full Sachs et al. (2005) protein-signalling dataset (n = 1755
-single-cell measurements, 11 proteins) without shuffling.
+The repository includes the preprocessed Sachs data in
+[`Flow_Cytometry.csv`](flow_cytometry_inference/Flow_Cytometry.csv).
 
-**Step 1 -- Train CEDM (Python):**
+Train CEDM in Python:
 
 ```bash
 python flow_cytometry_inference/cytometry_diffusion_training.py
 ```
 
-**Step 2 -- Edge inference (R):**
+Then open and run [`flow_cytometry_inference/Edge_Inference.Rmd`](flow_cytometry_inference/Edge_Inference.Rmd)
+in R to perform edge inference with `RCIT`.
 
-Open and run `flow_cytometry_inference/Edge_Inference.Rmd` in R.
+</details>
 
----
+<details>
+<summary><strong>Supplementary simulations</strong></summary>
 
-### Supplementary Figure 1 -- Conditional Expectation Estimation
-
-Evaluates CEDM versus a causally agnostic diffusion baseline (using RePaint for conditional
-generation) on four graph structures across training sizes n in {500, 1000, 2000, 5000}
-(50 seeds each).
+Conditional-expectation estimation (Supplementary Figure 1):
 
 ```bash
 python simulations/hub_comparison.py
@@ -183,11 +217,9 @@ python simulations/long_chain_comparison.py
 python simulations/sachs_comparison.py
 ```
 
-Then open `simulations/summary_comparison.ipynb` to generate Supplementary Figure 1.
+Summarize with [`simulations/summary_comparison.ipynb`](simulations/summary_comparison.ipynb).
 
----
-
-### Supplementary Figures 2-4 -- Inference Without Sample Splitting
+Inference without sample splitting (Supplementary Figures 2-4):
 
 ```bash
 python simulations/inference_size_gamma.py
@@ -196,80 +228,92 @@ python simulations/inference_power_gamma.py
 python simulations/inference_power_eta.py
 ```
 
-Then open `simulations/summary_inference.ipynb` to produce Supplementary Figures 2-4.
+Summarize with [`simulations/summary_inference.ipynb`](simulations/summary_inference.ipynb).
 
----
-
-### Supplementary Figure 6 -- Model Misspecification on Sachs
-
-Evaluates CEDMI under three conditioning-set specifications for the null edge P38 -> Mek on
-synthetic Sachs data (true parent set, super-set with extra parents, missing-parent subset).
+Sachs working-graph misspecification (Supplementary Figure 6):
 
 ```bash
 python simulations/inference_sachs_misspecification.py
 ```
 
----
+</details>
 
-## Method Details
+### Generated artifacts
 
-### CEDM Architecture
+Generated data, checkpoints, and results are intentionally excluded from version control.
 
-Each node group `j` has its own `ConditionalDDPM` with an MLP noise-prediction network:
+| Path | Contents |
+|---|---|
+| `data/` | Synthetic datasets, reference samples, and graph structures |
+| `ckpt/` | Trained diffusion-model checkpoints |
+| `results/` | Simulation CSV files, summaries, and figures |
+| `flow_cytometry_inference/checkpoints*/` | Flow-cytometry model checkpoints |
+| `flow_cytometry_inference/results*/` | Flow-cytometry inference and diagnostic results |
 
+## Repository layout
+
+| Path | Purpose |
+|---|---|
+| [`utils/conditional_ddpm.py`](utils/conditional_ddpm.py) | Nodewise conditional diffusion models and CEDM sampling |
+| [`utils/ddpm.py`](utils/ddpm.py) | Causality-agnostic joint-diffusion baseline |
+| [`utils/utils_model.py`](utils/utils_model.py) | Diffusion-network architecture |
+| [`utils/utils_data.py`](utils/utils_data.py) | Synthetic data generators and ground-truth conditionals |
+| [`utils/mcodec.py`](utils/mcodec.py) | MCODEC and CODEC statistics |
+| [`simulations/`](simulations) | Main-text and supplementary simulation entry points |
+| [`flow_cytometry_inference/`](flow_cytometry_inference) | Sachs-data training, inference, diagnostics, and summaries |
+| [`requirements.txt`](requirements.txt) | Tested Python dependency versions |
+
+## Method details
+
+### CEDM architecture
+
+Each node group has its own conditional diffusion model. The noise-prediction network takes
+the noisy child group, the observed parent groups, and a sinusoidal time embedding:
+
+```text
+[noisy child | observed parents | time embedding]
+    -> SiLU MLP (512 -> 256 -> 256 -> 256 -> 128)
+    -> predicted child noise
 ```
-Input: [noisy X_j | X_{pa(j)} | sinusoidal time embedding]
-  -> SiLU MLP (hidden dims: 512 -> 256 -> 256 -> 256 -> 128)
-Output: predicted noise for X_j
-```
 
-Training uses denoising score matching with a linear beta schedule
-(beta_1 = 1e-4 to beta_T = 0.02, T = 1000 steps). Node groups are trained in
-topological order; each model conditions on the parent groups' observed (not noisy) values.
+Training uses denoising score matching with a linear beta schedule from `1e-4` to `0.02`
+and `T = 1000` diffusion steps. Models are trained in topological order.
 
-### CEDMI Procedure
+### CEDMI procedure
 
-Given a candidate edge (k -> j) to test:
+For a candidate directed edge:
 
-1. Fit CEDM on the training split encoding the null graph (edge removed).
-2. On the inference split, compute the observed MCODEC statistic tau.
-3. Generate D = 100 Monte Carlo resamples of X_j under do(X_{pa'(j)} = observed values).
-4. Compute tau^(m) for each resample.
-5. Monte Carlo p-value: p = (1 + #{tau^(m) >= tau}) / (D + 1).
+1. Remove the edge and fit CEDM under the resulting null graph.
+2. Compute the observed MCODEC statistic on the inference sample.
+3. Generate `D = 100` null resamples of the child from the fitted conditional model.
+4. Recompute MCODEC for every resample.
+5. Return the Monte Carlo p-value `(1 + #{tau_d >= tau}) / (D + 1)`.
 
 ### MCODEC
 
-For multivariate X_j, X_k, X_{pa'(j)\k}:
+For multivariate child `X_j`, candidate parent `X_k`, and remaining parents `Z`:
 
+```text
+MCODEC(X_j, X_k | Z)
+    = [xi(X_j, (Z, X_k)) - xi(X_j, Z)] / [1 - xi(X_j, Z)]
 ```
-MCODEC(X_j, X_k | X_{pa'(j)\k}) =
-    [ xi(X_j, (X_{pa'(j)\k}, X_k)) - xi(X_j, X_{pa'(j)\k}) ]
-    / [ 1 - xi(X_j, X_{pa'(j)\k}) ]
-```
 
-where `xi` is the Ansari-Fuchs multi-output extension of the Azadkia-Chatterjee rank
-correlation. MCODEC lies in [0, 1], equals 0 if and only if X_j is conditionally independent
-of X_k given X_{pa'(j)\k}, and is strongly consistent.
+Here `xi` is the Ansari-Fuchs multi-output extension of the Azadkia-Chatterjee rank
+correlation.
 
----
+## External comparison methods
 
-## External Comparison Methods
+Third-party competitor implementations are intentionally not included. They are available
+from their original sources:
 
-Third-party competitor implementations are intentionally not included in this repository.
-The paper's comparison methods are available from their original sources:
-
-| Method  | Reference                    | Source                                          |
-|---------|------------------------------|-------------------------------------------------|
-| SGMCIT  | Ren et al., KDD 2025         | https://github.com/jinchenghou123/SGMCIT        |
-| NNLSCIT | Li et al., NeurIPS 2023      | https://github.com/LeeShuai-kenwitch/NNLSCIT    |
-| CDCIT   | Yang et al., AAAI 2025       | https://github.com/Yanfeng-Yang-0316/CDCIT      |
-| CCIT    | Sen et al., NeurIPS 2017     | PyPI package `ccit`                             |
-| RCoT / RCIT | Strobl et al., JCI 2019  | R package `RCIT`                                |
-| VACA    | Sanchez-Martin et al., AAAI 2022 | https://github.com/psanch21/VACA  |
-
-The authors thank the original developers for the competing methods.
-
----
+| Method | Reference | Source |
+|---|---|---|
+| SGMCIT | Ren et al., KDD 2025 | [GitHub](https://github.com/jinchenghou123/SGMCIT) |
+| NNLSCIT | Li et al., NeurIPS 2023 | [GitHub](https://github.com/LeeShuai-kenwitch/NNLSCIT) |
+| CDCIT | Yang et al., AAAI 2025 | [GitHub](https://github.com/Yanfeng-Yang-0316/CDCIT) |
+| CCIT | Sen et al., NeurIPS 2017 | Python package `ccit` |
+| RCoT / RCIT | Strobl et al., JCI 2019 | R package `RCIT` |
+| VACA | Sanchez-Martin et al., AAAI 2022 | [GitHub](https://github.com/psanch21/VACA) |
 
 ## Citation
 
@@ -283,3 +327,7 @@ If you use this code, please cite:
   year    = {2026}
 }
 ```
+
+## Questions and feedback
+
+For questions about the implementation or reproducibility, please open a GitHub issue.
