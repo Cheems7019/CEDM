@@ -3,6 +3,7 @@
 [![arXiv](https://img.shields.io/badge/arXiv-2604.21843-b31b1b.svg)](https://arxiv.org/abs/2604.21843)
 [![Python 3.10](https://img.shields.io/badge/Python-3.10-3776AB.svg?logo=python&logoColor=white)](requirements.txt)
 [![PyTorch 2.5.1](https://img.shields.io/badge/PyTorch-2.5.1-EE4C2C.svg?logo=pytorch&logoColor=white)](requirements.txt)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Official implementation of **Causality-Encoded Diffusion Models for Interventional
 Sampling and Edge Inference** by Li Chen, Xiaotong Shen, and Wei Pan.
@@ -10,7 +11,8 @@ Sampling and Edge Inference** by Li Chen, Xiaotong Shen, and Wei Pan.
 [Paper](https://arxiv.org/abs/2604.21843) ·
 [Quick start](#quick-start) ·
 [Reproduce the paper](#reproducing-the-paper) ·
-[Citation](#citation)
+[Citation](#citation) ·
+[License](#license)
 
 CEDM factorizes diffusion learning according to a known directed acyclic graph (DAG),
 training one conditional diffusion model for each node given its parents. The fitted model
@@ -327,6 +329,10 @@ If you use this code, please cite:
   year    = {2026}
 }
 ```
+
+## License
+
+This project is released under the [MIT License](LICENSE).
 
 ## Questions and feedback
 
